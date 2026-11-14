@@ -80,22 +80,46 @@ const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('
 
 let started = false
 
+const NTFY_POLL_MS = 15000
+const ntfySeen = new Set<string>()
+let lastNtfyId: string | null = null
+
+/** Ajoute un signalement reçu de ntfy, sans doublon (flux, relecture ou réponse à l'envoi). */
+function ingestNtfy(raw: string) {
+  const report = parseNtfyEvent(raw)
+  if (!report || ntfySeen.has(report.id)) return
+  ntfySeen.add(report.id)
+  lastNtfyId = report.id
+  reports = [...reports, report]
+  emit()
+}
+
 async function start() {
   if (started) return
   started = true
 
   if (backend === 'ntfy') {
-    const seen = new Set<string>()
-    const url = `${NTFY_BASE}/${encodeURIComponent(NTFY_TOPIC)}/sse?since=${REPORT_WINDOW_MIN}m`
-    // EventSource se reconnecte tout seul en cas de coupure réseau
-    const source = new EventSource(url)
-    source.onmessage = (e: MessageEvent<string>) => {
-      const report = parseNtfyEvent(e.data)
-      if (!report || seen.has(report.id)) return
-      seen.add(report.id)
-      reports = [...reports, report]
-      emit()
+    const topicUrl = `${NTFY_BASE}/${encodeURIComponent(NTFY_TOPIC)}`
+    // 1. Flux temps réel : chaque signalement arrive en moins d'une seconde
+    const source = new EventSource(`${topicUrl}/sse?since=${REPORT_WINDOW_MIN}m`)
+    source.onmessage = (e: MessageEvent<string>) => ingestNtfy(e.data)
+    // 2. Filet de sécurité : certains réseaux mobiles retiennent le flux, on vérifie aussi régulièrement
+    const poll = async () => {
+      try {
+        const since = lastNtfyId ?? `${REPORT_WINDOW_MIN}m`
+        const res = await fetch(`${topicUrl}/json?poll=1&since=${since}`)
+        if (!res.ok) return
+        for (const line of (await res.text()).split('\n')) if (line.trim()) ingestNtfy(line)
+      } catch {
+        /* hors ligne : on réessaiera au prochain tour */
+      }
     }
+    void poll()
+    window.setInterval(poll, NTFY_POLL_MS)
+    // Au retour sur l'app (téléphone sorti de veille), on rattrape tout de suite
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void poll()
+    })
     emit()
     return
   }
@@ -176,7 +200,9 @@ export async function addReport(gymId: string, level: CrowdLevel): Promise<void>
     })
     if (!res.ok) throw new Error(`le serveur a répondu ${res.status}`)
     startCooldown()
-    return // le flux temps réel renvoie le signalement à tous les appareils, y compris celui-ci
+    // ntfy renvoie le message publié : on l'affiche tout de suite sur cet appareil
+    ingestNtfy(await res.text())
+    return
   }
 
   startCooldown()

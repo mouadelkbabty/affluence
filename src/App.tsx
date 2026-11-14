@@ -3,6 +3,7 @@ import { BRANDS, GYMS, type Brand } from './data/gyms'
 import { occupancyNow, type Occupancy, type Report } from './lib/occupancy'
 import { storeMode, subscribeReports } from './lib/reports'
 import { formatClock, formatDay } from './lib/time'
+import { Conditions } from './components/Conditions'
 import { MapView } from './components/MapView'
 import { GymDetail, GymList } from './components/Panel'
 
@@ -118,11 +119,14 @@ export default function App() {
 
       <header className="topbar">
         <div className="brandmark">
-          <h1>Affluence</h1>
-          <p className="clock" aria-live="off">
-            <span className="clock-dot" aria-hidden="true" />
-            Grenoble, {formatDay(now)} {formatClock(now)}
-          </p>
+          <div className="brand-row">
+            <h1>Affluence</h1>
+            <p className="clock" aria-live="off">
+              <span className="clock-dot" aria-hidden="true" />
+              Grenoble, {formatDay(now)} {formatClock(now)}
+            </p>
+          </div>
+          <Conditions />
         </div>
         <div className="top-actions">
           <button type="button" className="icon-btn" onClick={locate} aria-label="Me localiser">

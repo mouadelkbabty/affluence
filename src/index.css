@@ -110,49 +110,131 @@ p {
 .brandmark {
   background: var(--encre);
   color: var(--creme);
-  border-radius: 22px;
-  padding: 14px 18px 12px;
+  border-radius: 18px;
+  padding: 10px 14px;
   box-shadow: var(--ombre);
+  min-width: 0;
+}
+
+.brand-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .brandmark h1 {
   font-family: var(--display);
-  font-size: 2.25rem;
+  font-size: 1.35rem;
   font-weight: 800;
   font-stretch: 85%;
-  letter-spacing: -0.035em;
-  line-height: 0.95;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .clock {
-  margin-top: 6px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
+  gap: 6px;
+  font-size: 0.78rem;
   color: #e9dcc5;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .clock-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--calme);
   box-shadow: 0 0 0 0 rgb(46 158 110 / 0.6);
   animation: pulse 2.4s ease-out infinite;
 }
 
+/* Météo et qualité de l'air */
+.conditions {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #e9dcc5;
+  font-variant-numeric: tabular-nums;
+}
+
+.conditions-empty {
+  opacity: 0.7;
+}
+
+.cond-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cond-weather svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: #f6d48b;
+}
+
+.cond-weather strong {
+  color: var(--creme);
+  font-size: 0.92rem;
+}
+
+.cond-range,
+.cond-rain {
+  white-space: nowrap;
+}
+
+.cond-rain {
+  color: #a9cdea;
+}
+
+.cond-air {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(255 249 237 / 0.1);
+}
+
+.cond-air-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--air);
+}
+
+.air-bon {
+  --air: var(--calme);
+}
+.air-correct {
+  --air: #9cc65a;
+}
+.air-moyen {
+  --air: var(--modere);
+}
+.air-mauvais {
+  --air: var(--bonde);
+}
+
 .top-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .icon-btn {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
   border: 0;
   background: var(--creme);
   box-shadow: var(--ombre);
@@ -225,7 +307,7 @@ p {
   position: absolute;
   z-index: 4;
   left: 16px;
-  top: 178px;
+  top: 164px;
   bottom: 16px;
   width: var(--panel-w);
   background: var(--creme);
@@ -947,22 +1029,34 @@ p {
   }
 
   .brandmark {
-    padding: 11px 15px 10px;
-    border-radius: 18px;
+    padding: 9px 12px;
+    border-radius: 16px;
   }
 
   .brandmark h1 {
-    font-size: 1.75rem;
+    font-size: 1.2rem;
+  }
+
+  .clock {
+    font-size: 0.74rem;
+  }
+
+  .conditions {
+    font-size: 0.75rem;
+  }
+
+  .cond-range {
+    display: none;
   }
 
   .top-actions {
-    flex-direction: row;
-    align-items: flex-start;
+    flex-direction: column;
   }
 
   .icon-btn {
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
   }
 
   .sheet {
