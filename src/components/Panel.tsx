@@ -188,8 +188,11 @@ export function GymDetail({ gym, occ, now, onClose }: DetailProps) {
             {message}
           </p>
         )}
+        {storeMode === 'partage' && !message && wait === 0 && (
+          <p className="report-note">Anonyme et visible en direct par tous.</p>
+        )}
         {storeMode === 'local' && (
-          <p className="report-note">Mode démo : tes signalements restent sur cet appareil.</p>
+          <p className="report-note">Ton navigateur ne gère pas le temps réel : ton signalement reste sur cet appareil.</p>
         )}
       </section>
 

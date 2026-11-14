@@ -31,7 +31,7 @@ Le calcul est dans [`src/lib/occupancy.ts`](src/lib/occupancy.ts) et testé dans
 |---|---|---|
 | Interface | React 19 + TypeScript + Vite | 0 € |
 | Carte | Leaflet + tuiles OpenStreetMap | 0 € |
-| Signalements partagés + temps réel | Supabase (offre gratuite) | 0 € |
+| Signalements partagés en temps réel | ntfy.sh (public, sans compte) ou Supabase | 0 € |
 | Hébergement | Vercel / Netlify / GitHub Pages | 0 € |
 | Polices | Bricolage Grotesque, Figtree (auto-hébergées) | 0 € |
 
@@ -44,16 +44,21 @@ npm test           # tests du modèle
 npm run build      # version de production dans dist/
 ```
 
-Pour simuler un autre moment (démo, tests) : `?heure=2026-11-17T18:30%2B01:00`.
+En développement, `?heure=2026-11-17T18:30%2B01:00` simule un autre moment.
 
-Sans configuration, l’app tourne en **mode démo** : tes signalements restent sur ton appareil.
+## Signalements partagés en direct
 
-## Brancher les signalements partagés (Supabase, gratuit)
+**Sans rien configurer**, les signalements passent par [ntfy.sh](https://ntfy.sh), un service public de messages en temps réel : chaque appareil s’abonne au même canal et voit les signalements des autres en moins d’une seconde. Le canal garde la dernière heure, ce qui suffit au calcul.
+
+- Changer de canal : variable `VITE_NTFY_TOPIC` (et `VITE_NTFY_URL` pour un serveur ntfy auto-hébergé).
+- Limite : un canal public peut recevoir n’importe quel message. L’app ignore tout ce qui n’est pas un signalement valide (salle connue, niveau connu), mais pour un vrai lancement, passe sur Supabase.
+
+### Passer sur Supabase (recommandé pour la mise en production)
 
 1. Crée un projet sur [supabase.com](https://supabase.com).
 2. Dans **SQL Editor**, exécute [`supabase/schema.sql`](supabase/schema.sql) (table, règles d’accès et temps réel).
 3. Dans **Project Settings → API**, copie l’URL et la clé `anon` publique.
-4. Copie `.env.example` en `.env` et remplis les deux valeurs (en local), ou ajoute-les comme variables d’environnement chez ton hébergeur.
+4. Copie `.env.example` en `.env` et remplis les deux valeurs (en local), ou ajoute-les comme variables d’environnement chez ton hébergeur. Dès qu’elles sont présentes, l’app utilise Supabase au lieu de ntfy.
 
 ## Déployer sur Vercel
 

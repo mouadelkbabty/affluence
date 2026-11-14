@@ -1,6 +1,13 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { NTFY_BASE, NTFY_TOPIC, ntfyMessage, parseNtfyEvent } from './ntfy'
 import { REPORT_WINDOW_MIN, type CrowdLevel, type Report } from './occupancy'
 
+/**
+ * supabase : base partagée configurée par variables d'environnement
+ * ntfy     : canal public partagé (par défaut, aucune configuration)
+ * local    : repli si le navigateur ne gère pas le temps réel
+ */
+export type Backend = 'supabase' | 'ntfy' | 'local'
 export type StoreMode = 'partage' | 'local'
 
 type Listener = (reports: Report[]) => void
@@ -21,7 +28,13 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 const supabase: SupabaseClient | null = url && anonKey ? createClient(url, anonKey) : null
 
-export const storeMode: StoreMode = supabase ? 'partage' : 'local'
+const backend: Backend = supabase
+  ? 'supabase'
+  : typeof EventSource !== 'undefined'
+    ? 'ntfy'
+    : 'local'
+
+export const storeMode: StoreMode = backend === 'local' ? 'local' : 'partage'
 
 let reports: Report[] = []
 const listeners = new Set<Listener>()
@@ -70,6 +83,22 @@ let started = false
 async function start() {
   if (started) return
   started = true
+
+  if (backend === 'ntfy') {
+    const seen = new Set<string>()
+    const url = `${NTFY_BASE}/${encodeURIComponent(NTFY_TOPIC)}/sse?since=${REPORT_WINDOW_MIN}m`
+    // EventSource se reconnecte tout seul en cas de coupure réseau
+    const source = new EventSource(url)
+    source.onmessage = (e: MessageEvent<string>) => {
+      const report = parseNtfyEvent(e.data)
+      if (!report || seen.has(report.id)) return
+      seen.add(report.id)
+      reports = [...reports, report]
+      emit()
+    }
+    emit()
+    return
+  }
 
   if (!supabase) {
     reports = loadLocal()
@@ -127,16 +156,30 @@ export function cooldownLeft(gymId: string, now = Date.now()): number {
 
 export async function addReport(gymId: string, level: CrowdLevel): Promise<void> {
   const createdAt = new Date()
-  const map = cooldowns()
-  map[gymId] = createdAt.getTime()
-  safeStorage()?.setItem(COOLDOWN_KEY, JSON.stringify(map))
+  const startCooldown = () => {
+    const map = cooldowns()
+    map[gymId] = createdAt.getTime()
+    safeStorage()?.setItem(COOLDOWN_KEY, JSON.stringify(map))
+  }
 
   if (supabase) {
     const { error } = await supabase.from('reports').insert({ gym_id: gymId, level })
     if (error) throw new Error(error.message)
+    startCooldown()
     return // le flux temps réel ajoutera le signalement
   }
 
+  if (backend === 'ntfy') {
+    const res = await fetch(`${NTFY_BASE}/${encodeURIComponent(NTFY_TOPIC)}`, {
+      method: 'POST',
+      body: ntfyMessage(gymId, level),
+    })
+    if (!res.ok) throw new Error(`le serveur a répondu ${res.status}`)
+    startCooldown()
+    return // le flux temps réel renvoie le signalement à tous les appareils, y compris celui-ci
+  }
+
+  startCooldown()
   reports = [...reports, { gymId, level, createdAt }]
   saveLocal()
   channel?.postMessage('update')

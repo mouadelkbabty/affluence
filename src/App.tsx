@@ -8,8 +8,9 @@ import { GymDetail, GymList } from './components/Panel'
 
 type Filter = Brand | 'all'
 
-/** ?heure=2026-11-17T18:30 permet de simuler un autre moment (démo, tests). */
+/** En développement, ?heure=2026-11-17T18:30%2B01:00 simule un autre moment. Ignoré en production. */
 const simulatedStart = (() => {
+  if (!import.meta.env.DEV) return null
   const raw = new URLSearchParams(window.location.search).get('heure')
   const date = raw ? new Date(raw) : null
   return date && !Number.isNaN(date.getTime()) ? date.getTime() : null
@@ -205,10 +206,13 @@ export default function App() {
               signalement compte pendant une heure, et de moins en moins à mesure qu’il vieillit.
             </p>
             <p>Plus on est nombreux à signaler, plus la carte est juste. Pense à le faire en arrivant.</p>
-            {storeMode === 'local' && (
+            {storeMode === 'local' ? (
               <p className="about-note">
-                Version démo : les signalements restent sur ton appareil tant que la base partagée n’est pas
-                branchée.
+                Ton navigateur ne gère pas le temps réel : tes signalements restent sur cet appareil.
+              </p>
+            ) : (
+              <p className="about-note">
+                Les signalements sont anonymes et partagés en direct avec tous les utilisateurs.
               </p>
             )}
             <button type="button" className="go" onClick={() => setAboutOpen(false)}>
