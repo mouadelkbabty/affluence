@@ -31,13 +31,6 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/tiles\.openfreemap\.org\/.*/,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'map-tiles', expiration: { maxEntries: 500 } },
-          },
-        ],
       },
     }),
   ],

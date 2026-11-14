@@ -30,7 +30,7 @@ Le calcul est dans [`src/lib/occupancy.ts`](src/lib/occupancy.ts) et testé dans
 | Rôle | Outil | Coût |
 |---|---|---|
 | Interface | React 19 + TypeScript + Vite | 0 € |
-| Carte | MapLibre GL + fond OpenFreeMap (sans clé) | 0 € |
+| Carte | Leaflet + tuiles OpenStreetMap | 0 € |
 | Signalements partagés + temps réel | Supabase (offre gratuite) | 0 € |
 | Hébergement | Vercel / Netlify / GitHub Pages | 0 € |
 | Polices | Bricolage Grotesque, Figtree (auto-hébergées) | 0 € |

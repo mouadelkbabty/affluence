@@ -1,22 +1,8 @@
 import { useEffect, useRef } from 'react'
-import * as maplibregl from 'maplibre-gl'
-import type { Map as MlMap, Marker } from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { BRANDS, type Gym } from '../data/gyms'
 import type { Occupancy } from '../lib/occupancy'
-
-// Vite ne copie pas le worker de MapLibre tout seul : on lui donne son URL.
-maplibregl.setWorkerUrl(workerUrl)
-
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
-
-/** Style de secours si le fond de carte ne charge pas (hors ligne, réseau filtré). */
-const FALLBACK_STYLE = {
-  version: 8 as const,
-  sources: {},
-  layers: [{ id: 'background', type: 'background' as const, paint: { 'background-color': '#EEE4D1' } }],
-}
 
 interface Props {
   gyms: Gym[]
@@ -26,88 +12,74 @@ interface Props {
   onSelect: (id: string) => void
 }
 
-/** Teinte légèrement la carte pour qu'elle s'accorde avec l'interface. */
-function tuneStyle(map: MlMap) {
-  for (const layer of map.getStyle().layers ?? []) {
-    try {
-      if (layer.type === 'background') {
-        map.setPaintProperty(layer.id, 'background-color', '#EEF2F5')
-      } else if (layer.type === 'fill' && layer.id.includes('water')) {
-        map.setPaintProperty(layer.id, 'fill-color', '#CFE0EE')
-      } else if (layer.type === 'fill' && /park|wood|grass|landcover/.test(layer.id)) {
-        map.setPaintProperty(layer.id, 'fill-color', '#E1EBE3')
-      }
-    } catch {
-      /* calque non modifiable : on garde le style d'origine */
-    }
-  }
+/** Leaflet attend [latitude, longitude] ; nos données sont en [longitude, latitude]. */
+const toLatLng = ([lng, lat]: [number, number]): L.LatLngTuple => [lat, lng]
+
+const isMobile = () => window.matchMedia('(max-width: 820px)').matches
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 }
 
-function renderMarker(el: HTMLElement, gym: Gym, occ: Occupancy | null, selected: boolean) {
-  const brand = BRANDS[gym.brand]
-  el.className = `marker${selected ? ' is-selected' : ''}${occ ? ` status-${occ.status}` : ' is-closed'}`
-  el.style.setProperty('--brand', brand.color)
-  el.style.setProperty('--fill', occ ? `${occ.percent}%` : '0%')
-  el.setAttribute('aria-label', `${gym.name} : ${occ ? `${occ.percent} % de remplissage` : 'fermée'}`)
-  el.innerHTML = `
-    <span class="marker-pill"><span class="marker-fill"></span></span>
-    <span class="marker-value">${occ ? `${occ.percent}<small>%</small>` : 'Fermé'}</span>
-    ${occ?.source === 'live' ? '<span class="marker-live" aria-hidden="true"></span>' : ''}
-    <span class="marker-name">${gym.name}</span>
-  `
+function markerIcon(gym: Gym, occ: Occupancy | null, selected: boolean): L.DivIcon {
+  const classes = ['marker', selected ? 'is-selected' : '', occ ? `status-${occ.status}` : 'is-closed']
+  const label = `${gym.name} : ${occ ? `${occ.percent} % de remplissage` : 'fermée'}`
+  return L.divIcon({
+    className: 'marker-host',
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+    html: `
+      <span class="${classes.join(' ')}" aria-label="${escapeHtml(label)}"
+        style="--brand:${BRANDS[gym.brand].color};--fill:${occ ? occ.percent : 0}%">
+        <span class="marker-pill"><span class="marker-fill"></span></span>
+        <span class="marker-value">${occ ? `${occ.percent}<small>%</small>` : 'Fermé'}</span>
+        ${occ?.source === 'live' ? '<span class="marker-live" aria-hidden="true"></span>' : ''}
+        <span class="marker-name">${escapeHtml(gym.name)}</span>
+      </span>`,
+  })
+}
+
+/** Marges qui laissent la place au panneau (à gauche sur ordinateur, en bas sur mobile). */
+function framePadding(): { topLeft: L.PointTuple; bottomRight: L.PointTuple } {
+  if (isMobile()) return { topLeft: [40, 200], bottomRight: [70, Math.round(window.innerHeight * 0.42)] }
+  return { topLeft: [470, 90], bottomRight: [90, 60] }
 }
 
 export function MapView({ gyms, occupancy, selectedId, userPosition, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<MlMap | null>(null)
-  const markersRef = useRef<Map<string, { marker: Marker; el: HTMLButtonElement }>>(new Map())
-  const userMarkerRef = useRef<Marker | null>(null)
+  const mapRef = useRef<L.Map | null>(null)
+  const markersRef = useRef<Map<string, L.Marker>>(new Map())
+  const userMarkerRef = useRef<L.Marker | null>(null)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
 
+  // Création de la carte (une seule fois)
   useEffect(() => {
     if (!containerRef.current) return
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: STYLE_URL,
-      center: [5.735, 45.188],
-      zoom: 11.6,
-      attributionControl: { compact: true },
-    })
-    map.on('load', () => tuneStyle(map))
-    let fellBack = false
-    map.on('error', () => {
-      if (!fellBack && !map.isStyleLoaded()) {
-        fellBack = true
-        map.setStyle(FALLBACK_STYLE)
-      }
-    })
-    // Cadre toutes les salles en laissant la place au panneau
-    const frame = () => {
-      const bounds = new maplibregl.LngLatBounds()
-      for (const g of gyms) bounds.extend(g.coords)
-      const mobile = window.matchMedia('(max-width: 820px)').matches
-      map.fitBounds(bounds, {
-        padding: mobile
-          ? { top: 190, bottom: window.innerHeight * 0.42, left: 40, right: 70 }
-          : { top: 90, bottom: 60, left: 470, right: 90 },
-        animate: false,
-      })
-    }
-    let framed = false
-    const observer = new ResizeObserver(() => {
-      map.resize()
-      if (!framed && containerRef.current!.clientHeight > 0) {
-        framed = true
-        frame()
-      }
-    })
+    const map = L.map(containerRef.current, { zoomControl: false })
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+    }).addTo(map)
+    L.control.zoom({ position: 'bottomright' }).addTo(map)
+    map.attributionControl.setPrefix(false)
+
+    const bounds = L.latLngBounds(gyms.map((g) => toLatLng(g.coords)))
+    const { topLeft, bottomRight } = framePadding()
+    map.fitBounds(bounds, { paddingTopLeft: topLeft, paddingBottomRight: bottomRight })
+
+    // Le conteneur peut changer de taille (rotation, barre d'adresse mobile)
+    const observer = new ResizeObserver(() => map.invalidateSize())
     observer.observe(containerRef.current)
+
     mapRef.current = map
     const markers = markersRef.current
     return () => {
       observer.disconnect()
       markers.clear()
+      userMarkerRef.current = null
       map.remove()
       mapRef.current = null
     }
@@ -115,65 +87,65 @@ export function MapView({ gyms, occupancy, selectedId, userPosition, onSelect }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Crée ou met à jour les marqueurs
+  // Marqueurs : création, mise à jour du taux, suppression selon le filtre
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const seen = new Set<string>()
     for (const gym of gyms) {
       seen.add(gym.id)
-      let entry = markersRef.current.get(gym.id)
-      if (!entry) {
-        const el = document.createElement('button')
-        el.type = 'button'
-        el.addEventListener('click', (e) => {
-          e.stopPropagation()
-          onSelectRef.current(gym.id)
+      const icon = markerIcon(gym, occupancy[gym.id] ?? null, gym.id === selectedId)
+      let marker = markersRef.current.get(gym.id)
+      if (!marker) {
+        marker = L.marker(toLatLng(gym.coords), { icon, keyboard: true, title: gym.name })
+        marker.on('click', () => onSelectRef.current(gym.id))
+        marker.on('keypress', (e) => {
+          const key = (e.originalEvent as KeyboardEvent).key
+          if (key === 'Enter' || key === ' ') onSelectRef.current(gym.id)
         })
-        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat(gym.coords)
-          .addTo(map)
-        entry = { marker, el }
-        markersRef.current.set(gym.id, entry)
+        marker.addTo(map)
+        markersRef.current.set(gym.id, marker)
+      } else {
+        marker.setIcon(icon)
       }
-      renderMarker(entry.el, gym, occupancy[gym.id] ?? null, gym.id === selectedId)
-      entry.el.style.zIndex = gym.id === selectedId ? '10' : ''
+      marker.setZIndexOffset(gym.id === selectedId ? 1000 : 0)
     }
-    for (const [id, entry] of markersRef.current) {
+    for (const [id, marker] of markersRef.current) {
       if (!seen.has(id)) {
-        entry.marker.remove()
+        marker.remove()
         markersRef.current.delete(id)
       }
     }
   }, [gyms, occupancy, selectedId])
 
-  // Centre la carte sur la salle choisie
+  // Centre la carte sur la salle choisie, dans la partie encore visible
   useEffect(() => {
     const map = mapRef.current
     const gym = gyms.find((g) => g.id === selectedId)
     if (!map || !gym) return
-    const mobile = window.matchMedia('(max-width: 820px)').matches
-    map.flyTo({
-      center: gym.coords,
-      zoom: Math.max(map.getZoom(), 13.4),
-      // Place la salle au milieu de la partie de carte encore visible
-      offset: mobile ? [0, (140 + window.innerHeight * 0.3) / 2 - window.innerHeight / 2] : [200, 0],
-      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900,
-    })
+    const zoom = Math.max(map.getZoom(), 14)
+    const h = window.innerHeight
+    const offset: L.PointTuple = isMobile() ? [0, (140 + h * 0.3) / 2 - h / 2] : [200, 0]
+    // On vise un point décalé pour que la salle apparaisse là où l'œil regarde
+    const target = map.unproject(map.project(toLatLng(gym.coords), zoom).subtract(offset), zoom)
+    if (prefersReducedMotion()) map.setView(target, zoom)
+    else map.flyTo(target, zoom, { duration: 0.8 })
   }, [selectedId, gyms])
 
   // Position de l'utilisateur
   useEffect(() => {
     const map = mapRef.current
     if (!map || !userPosition) return
+    const latLng = toLatLng(userPosition)
     if (!userMarkerRef.current) {
-      const el = document.createElement('span')
-      el.className = 'user-dot'
-      el.setAttribute('aria-label', 'Votre position')
-      userMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat(userPosition).addTo(map)
-      map.flyTo({ center: userPosition, zoom: 13 })
+      userMarkerRef.current = L.marker(latLng, {
+        icon: L.divIcon({ className: 'user-host', html: '<span class="user-dot"></span>', iconSize: [0, 0] }),
+        interactive: false,
+        keyboard: false,
+      }).addTo(map)
+      map.flyTo(latLng, 13.5, { duration: prefersReducedMotion() ? 0 : 0.8 })
     } else {
-      userMarkerRef.current.setLngLat(userPosition)
+      userMarkerRef.current.setLatLng(latLng)
     }
   }, [userPosition])
 

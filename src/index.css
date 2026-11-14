@@ -78,8 +78,8 @@ p {
   width: 100%;
 }
 
-/* MapLibre ajoute « position: relative » à son conteneur : on garde la main. */
-.app > .map.maplibregl-map,
+/* Leaflet ajoute ses propres classes au conteneur : on garde la main sur la taille. */
+.app > .map.leaflet-container,
 .app > .map {
   position: absolute;
   inset: 0;
@@ -715,11 +715,18 @@ p {
 
 /* ---------- Marqueurs ---------- */
 
-.marker {
-  position: relative;
-  border: 0;
-  padding: 0;
+.marker-host {
   background: none;
+  border: 0;
+}
+
+/* La pointe basse de la jauge tombe sur l'adresse de la salle */
+.marker {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translateX(-11px);
+  cursor: pointer;
   display: flex;
   align-items: flex-end;
   gap: 4px;
@@ -728,7 +735,11 @@ p {
 }
 
 .marker:hover {
-  transform: translateY(-2px);
+  transform: translate(-11px, -2px);
+}
+
+.marker.is-selected {
+  transform: translateX(-14px);
 }
 
 .marker-pill {
@@ -862,10 +873,67 @@ p {
   color: var(--taupe);
 }
 
-/* ---------- Carte : petits réglages ---------- */
+/* ---------- Carte Leaflet : réglages ---------- */
 
-.maplibregl-ctrl-attrib {
+.app .leaflet-container {
+  background: #efe6d4;
   font-family: var(--body);
+}
+
+/* Les tuiles OpenStreetMap, adoucies pour s'accorder au crème de l'interface */
+.leaflet-tile-pane {
+  filter: grayscale(0.55) sepia(0.18) saturate(0.9) brightness(1.04) contrast(0.92);
+}
+
+.leaflet-control-attribution {
+  background: rgb(255 249 237 / 0.85) !important;
+  border-radius: 10px 0 0 0;
+  font-size: 0.7rem;
+  color: var(--taupe);
+}
+
+.leaflet-control-attribution a {
+  color: var(--encre);
+}
+
+.leaflet-bar {
+  border: 0 !important;
+  box-shadow: var(--ombre) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+.leaflet-bar a {
+  width: 40px !important;
+  height: 40px !important;
+  line-height: 38px !important;
+  background: var(--creme) !important;
+  color: var(--encre) !important;
+  border-bottom-color: var(--trait) !important;
+  font-size: 1.3rem !important;
+}
+
+.leaflet-marker-icon:focus-visible .marker {
+  outline: 3px solid var(--encre);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.user-host {
+  background: none;
+  border: 0;
+}
+
+.user-dot {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+}
+
+@media (max-width: 820px) {
+  .leaflet-bottom.leaflet-right {
+    bottom: 40dvh;
+  }
 }
 
 /* ---------- Mobile ---------- */
