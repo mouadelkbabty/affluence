@@ -2,9 +2,14 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// APERCU=1 : version sans service worker, avec des chemins relatifs (aperçu hébergé)
+const apercu = process.env.APERCU === '1'
+
 export default defineConfig({
+  base: apercu ? './' : '/',
   plugins: [
     react(),
+    !apercu &&
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],

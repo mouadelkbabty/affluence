@@ -55,10 +55,14 @@ export default function App() {
 
   // Lien partageable vers une salle : ?salle=onair-gambetta
   useEffect(() => {
-    const url = new URL(window.location.href)
-    if (selectedId) url.searchParams.set('salle', selectedId)
-    else url.searchParams.delete('salle')
-    window.history.replaceState(null, '', url)
+    try {
+      const url = new URL(window.location.href)
+      if (selectedId) url.searchParams.set('salle', selectedId)
+      else url.searchParams.delete('salle')
+      window.history.replaceState(null, '', url)
+    } catch {
+      /* navigation bloquée (aperçu intégré) : le lien partageable est simplement ignoré */
+    }
   }, [selectedId])
 
   const gyms = useMemo(
