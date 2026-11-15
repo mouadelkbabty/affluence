@@ -6,6 +6,7 @@ import { formatClock, formatDay } from './lib/time'
 import { Conditions } from './components/Conditions'
 import { MapView } from './components/MapView'
 import { GymDetail, GymList } from './components/Panel'
+import { Sheet } from './components/Sheet'
 
 type Filter = Brand | 'all'
 
@@ -163,33 +164,22 @@ export default function App() {
         {locError && <p className="loc-error" role="alert">{locError}</p>}
       </header>
 
-      <aside className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="Salles">
-        <button
-          type="button"
-          className="sheet-handle"
-          onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? 'Réduire le panneau' : 'Agrandir le panneau'}
-          aria-expanded={expanded}
-        >
-          <span />
-        </button>
-        <div className="sheet-body">
-          {selected ? (
-            <GymDetail
-              key={selected.id}
-              gym={selected}
-              occ={occupancy[selected.id]}
-              now={now}
-              onClose={() => setSelectedId(null)}
-            />
-          ) : (
-            <>
-              <h2 className="sheet-title">Où s’entraîner maintenant ?</h2>
-              <GymList gyms={gyms} occupancy={occupancy} distances={distances} onSelect={select} />
-            </>
-          )}
-        </div>
-      </aside>
+      <Sheet expanded={expanded} onExpandedChange={setExpanded}>
+        {selected ? (
+          <GymDetail
+            key={selected.id}
+            gym={selected}
+            occ={occupancy[selected.id]}
+            now={now}
+            onClose={() => setSelectedId(null)}
+          />
+        ) : (
+          <>
+            <h2 className="sheet-title">Où s’entraîner maintenant ?</h2>
+            <GymList gyms={gyms} occupancy={occupancy} distances={distances} onSelect={select} />
+          </>
+        )}
+      </Sheet>
 
       {aboutOpen && (
         <div className="about-backdrop" onClick={() => setAboutOpen(false)}>

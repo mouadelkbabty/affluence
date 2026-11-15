@@ -1071,17 +1071,28 @@ p {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  .sheet.is-dragging {
+    transition: none;
+  }
+
   .sheet.is-expanded {
     height: 70dvh;
   }
 
   .sheet-handle {
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
     display: grid;
     place-items: center;
     height: 26px;
     border: 0;
     background: none;
     flex: none;
+  }
+
+  .sheet.is-dragging .sheet-handle {
+    cursor: grabbing;
   }
 
   .sheet-handle span {
