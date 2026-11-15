@@ -7,6 +7,7 @@ import { Conditions } from './components/Conditions'
 import { MapView } from './components/MapView'
 import { GymDetail, GymList } from './components/Panel'
 import { Sheet } from './components/Sheet'
+import { locateWithRefresh } from './lib/location'
 
 type Filter = Brand | 'all'
 
@@ -51,8 +52,10 @@ export default function App() {
   })
   const [expanded, setExpanded] = useState(() => selectedId !== null)
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null)
+  const [locationTarget, setLocationTarget] = useState<[number, number] | null>(null)
   const [locError, setLocError] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
+  const [refreshingLocation, setRefreshingLocation] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
 
   useEffect(() => subscribeReports(setReports), [])
@@ -102,18 +105,31 @@ export default function App() {
     }
     setLocError(null)
     setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false)
+    setRefreshingLocation(false)
+    let shownPosition: [number, number] | null = null
+    locateWithRefresh(
+      navigator.geolocation,
+      (pos, fresh) => {
+        const coords: [number, number] = [pos.coords.longitude, pos.coords.latitude]
+        if (!shownPosition || distanceKm(shownPosition, coords) >= 0.1) {
+          setExpanded(false)
+          setLocationTarget(coords)
+        }
+        shownPosition = coords
+        setUserPosition(coords)
+        setLocating(!fresh)
+        setRefreshingLocation(!fresh)
         setLocError(null)
-        setExpanded(false)
-        setUserPosition([pos.coords.longitude, pos.coords.latitude])
       },
-      () => {
+      (error) => {
         setLocating(false)
-        setLocError('Localisation refusée. Autorise-la dans les réglages pour voir les distances.')
+        setRefreshingLocation(false)
+        setLocError(shownPosition
+          ? 'Position récente affichée. Actualisation impossible, réessaie dans un instant.'
+          : error.code === 1
+            ? 'Localisation refusée. Autorise-la dans les réglages pour voir les distances.'
+            : 'Position indisponible pour le moment. Réessaie dans un instant.')
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
     )
   }
 
@@ -124,6 +140,7 @@ export default function App() {
         occupancy={occupancy}
         selectedId={selectedId}
         userPosition={userPosition}
+        locationTarget={locationTarget}
         onSelect={select}
       />
 
@@ -145,7 +162,7 @@ export default function App() {
             onClick={locate}
             disabled={locating}
             aria-busy={locating}
-            aria-label={locating ? 'Localisation en cours' : 'Me localiser'}
+            aria-label={locating ? (refreshingLocation ? 'Actualisation de la position' : 'Localisation en cours') : 'Me localiser'}
           >
             <svg className={locating ? 'location-spinner' : undefined} viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="3.5" />
@@ -159,7 +176,7 @@ export default function App() {
             </svg>
           </button>
         </div>
-        {locating && <p className="loc-status" role="status">Localisation en cours…</p>}
+        {locating && <p className="loc-status" role="status">{refreshingLocation ? 'Actualisation de la position…' : 'Localisation en cours…'}</p>}
         <nav className="filters" aria-label="Filtrer par enseigne">
           {(['all', 'onair', 'fitnesspark', 'basicfit'] as Filter[]).map((f) => (
             <button

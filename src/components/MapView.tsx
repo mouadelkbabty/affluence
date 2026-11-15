@@ -9,6 +9,7 @@ interface Props {
   occupancy: Record<string, Occupancy | null>
   selectedId: string | null
   userPosition: [number, number] | null
+  locationTarget: [number, number] | null
   onSelect: (id: string) => void
 }
 
@@ -46,7 +47,7 @@ function framePadding(): { topLeft: L.PointTuple; bottomRight: L.PointTuple } {
   return { topLeft: [470, 90], bottomRight: [90, 60] }
 }
 
-export function MapView({ gyms, occupancy, selectedId, userPosition, onSelect }: Props) {
+export function MapView({ gyms, occupancy, selectedId, userPosition, locationTarget, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markersRef = useRef<Map<string, L.Marker>>(new Map())
@@ -146,10 +147,14 @@ export function MapView({ gyms, occupancy, selectedId, userPosition, onSelect }:
     } else {
       userMarkerRef.current.setLatLng(latLng)
     }
+  }, [userPosition])
 
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !locationTarget) return
     // Keep the user at the centre of the unobstructed map, with nearby gyms
     // in view. Mirroring the bounds around the user preserves that centre.
-    const user = L.latLng(latLng)
+    const user = L.latLng(toLatLng(locationTarget))
     const nearest = gyms
       .map((gym) => L.latLng(toLatLng(gym.coords)))
       .sort((a, b) => user.distanceTo(a) - user.distanceTo(b))
@@ -168,7 +173,7 @@ export function MapView({ gyms, occupancy, selectedId, userPosition, onSelect }:
       animate: !prefersReducedMotion(),
       duration: 0.35,
     })
-  }, [userPosition, gyms])
+  }, [locationTarget, gyms])
 
   return <div ref={containerRef} className="map" role="region" aria-label="Carte des salles" />
 }
