@@ -39,6 +39,7 @@ export function GymList({ gyms, occupancy, distances, onSelect }: ListProps) {
         <button className="pick" type="button" onClick={() => onSelect(calmest.id)}>
           <span className="pick-label">Le plus calme en ce moment</span>
           <span className="pick-name">{calmest.name}</span>
+          <span className="pick-source">{occupancy[calmest.id]!.source === 'live' ? 'En direct' : 'Estimé'}</span>
           <span className={`pick-value status-${occupancy[calmest.id]!.status}`}>
             {occupancy[calmest.id]!.percent} %
           </span>
@@ -61,6 +62,7 @@ export function GymList({ gyms, occupancy, distances, onSelect }: ListProps) {
                 <span className={`row-meter ${occ ? `status-${occ.status}` : 'is-closed'}`}>
                   <span className="row-bar" style={{ ['--fill' as string]: `${occ?.percent ?? 0}%` }} />
                   <span className="row-value">{occ ? `${occ.percent} %` : 'Fermé'}</span>
+                  {occ && <span className="row-source">{occ.source === 'live' ? 'En direct' : 'Estimé'}</span>}
                 </span>
               </button>
             </li>

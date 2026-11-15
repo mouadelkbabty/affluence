@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { NTFY_BASE, NTFY_TOPIC, ntfyMessage, parseNtfyEvent } from './ntfy'
 import { REPORT_WINDOW_MIN, type CrowdLevel, type Report } from './occupancy'
+import { createReportConnection } from './reportConnection'
 
 /**
  * supabase : base partagée configurée par variables d'environnement
@@ -35,6 +36,8 @@ const backend: Backend = supabase
     : 'local'
 
 export const storeMode: StoreMode = backend === 'local' ? 'local' : 'partage'
+const connection = createReportConnection(backend === 'local', navigator.onLine)
+export const subscribeReportConnection = connection.subscribe
 
 let reports: Report[] = []
 const listeners = new Set<Listener>()
@@ -97,25 +100,36 @@ function ingestNtfy(raw: string) {
 async function start() {
   if (started) return
   started = true
+  window.addEventListener('offline', () => connection.setOnline(false))
+  window.addEventListener('online', () => connection.setOnline(true))
 
   if (backend === 'ntfy') {
     const topicUrl = `${NTFY_BASE}/${encodeURIComponent(NTFY_TOPIC)}`
     // 1. Flux temps réel : chaque signalement arrive en moins d'une seconde
     const source = new EventSource(`${topicUrl}/sse?since=${REPORT_WINDOW_MIN}m`)
     source.onmessage = (e: MessageEvent<string>) => ingestNtfy(e.data)
+    source.onopen = () => connection.setStream(true)
+    source.onerror = () => connection.setStream(false)
     // 2. Filet de sécurité : certains réseaux mobiles retiennent le flux, on vérifie aussi régulièrement
+    let polling = false
     const poll = async () => {
+      if (polling || !navigator.onLine) return
+      polling = true
       try {
         const since = lastNtfyId ?? `${REPORT_WINDOW_MIN}m`
-        const res = await fetch(`${topicUrl}/json?poll=1&since=${since}`)
-        if (!res.ok) return
+        const res = await fetch(`${topicUrl}/json?poll=1&since=${since}`, { signal: AbortSignal.timeout(10000) })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         for (const line of (await res.text()).split('\n')) if (line.trim()) ingestNtfy(line)
+        connection.setPolling(true)
       } catch {
-        /* hors ligne : on réessaiera au prochain tour */
+        connection.setPolling(false)
+      } finally {
+        polling = false
       }
     }
     void poll()
     window.setInterval(poll, NTFY_POLL_MS)
+    window.addEventListener('online', () => { void poll() })
     // Au retour sur l'app (téléphone sorti de veille), on rattrape tout de suite
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void poll()
@@ -148,7 +162,9 @@ async function start() {
       reports = [...reports, fromRow(payload.new as Row)]
       emit()
     })
-    .subscribe()
+    .subscribe((status) => {
+      connection.setStream(status === 'SUBSCRIBED')
+    })
 }
 
 export function subscribeReports(listener: Listener): () => void {

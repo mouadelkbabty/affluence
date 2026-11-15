@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BRANDS, GYMS, type Brand } from './data/gyms'
 import { occupancyNow, type Occupancy, type Report } from './lib/occupancy'
-import { storeMode, subscribeReports } from './lib/reports'
+import { storeMode, subscribeReports, subscribeReportConnection } from './lib/reports'
+import type { ReportConnection } from './lib/reportConnection'
 import { formatClock, formatDay } from './lib/time'
 import { Conditions } from './components/Conditions'
 import { MapView } from './components/MapView'
@@ -45,6 +46,7 @@ function distanceKm(a: [number, number], b: [number, number]): number {
 export default function App() {
   const now = useNow()
   const [reports, setReports] = useState<Report[]>([])
+  const [reportConnection, setReportConnection] = useState<ReportConnection>('connecting')
   const [filter, setFilter] = useState<Filter>('all')
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     const id = new URLSearchParams(window.location.search).get('salle')
@@ -59,6 +61,7 @@ export default function App() {
   const [aboutOpen, setAboutOpen] = useState(false)
 
   useEffect(() => subscribeReports(setReports), [])
+  useEffect(() => subscribeReportConnection(setReportConnection), [])
 
   // Lien partageable vers une salle : ?salle=onair-gambetta
   useEffect(() => {
@@ -199,6 +202,14 @@ export default function App() {
       </header>
 
       <Sheet expanded={expanded} onExpandedChange={setExpanded}>
+        <p className={`report-connection connection-${reportConnection}`} role="status">
+          {reportConnection === 'connecting' && 'Connexion aux signalements…'}
+          {reportConnection === 'connected' && 'Signalements en direct connectés'}
+          {reportConnection === 'polling' && 'Signalements actualisés toutes les 15 s'}
+          {reportConnection === 'reconnecting' && 'Reconnexion aux signalements… Les données peuvent dater.'}
+          {reportConnection === 'offline' && 'Hors ligne · Signalements non actualisés'}
+          {reportConnection === 'local' && 'Signalements enregistrés sur cet appareil uniquement'}
+        </p>
         {selected ? (
           <GymDetail
             key={selected.id}
