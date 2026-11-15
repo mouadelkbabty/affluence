@@ -52,6 +52,7 @@ export default function App() {
   const [expanded, setExpanded] = useState(() => selectedId !== null)
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null)
   const [locError, setLocError] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
 
   useEffect(() => subscribeReports(setReports), [])
@@ -94,18 +95,25 @@ export default function App() {
   }
 
   function locate() {
+    if (locating) return
     if (!navigator.geolocation) {
       setLocError('Ton navigateur ne permet pas la localisation.')
       return
     }
+    setLocError(null)
+    setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        setLocating(false)
         setLocError(null)
         setExpanded(false)
         setUserPosition([pos.coords.longitude, pos.coords.latitude])
       },
-      () => setLocError('Localisation refusée. Autorise-la dans les réglages pour voir les distances.'),
-      { enableHighAccuracy: true, timeout: 10000 },
+      () => {
+        setLocating(false)
+        setLocError('Localisation refusée. Autorise-la dans les réglages pour voir les distances.')
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
     )
   }
 
@@ -131,8 +139,15 @@ export default function App() {
           <Conditions />
         </div>
         <div className="top-actions">
-          <button type="button" className="icon-btn" onClick={locate} aria-label="Me localiser">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={locate}
+            disabled={locating}
+            aria-busy={locating}
+            aria-label={locating ? 'Localisation en cours' : 'Me localiser'}
+          >
+            <svg className={locating ? 'location-spinner' : undefined} viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="3.5" />
               <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
             </svg>
@@ -144,6 +159,7 @@ export default function App() {
             </svg>
           </button>
         </div>
+        {locating && <p className="loc-status" role="status">Localisation en cours…</p>}
         <nav className="filters" aria-label="Filtrer par enseigne">
           {(['all', 'onair', 'fitnesspark', 'basicfit'] as Filter[]).map((f) => (
             <button

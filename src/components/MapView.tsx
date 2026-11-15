@@ -166,7 +166,7 @@ export function MapView({ gyms, occupancy, selectedId, userPosition, onSelect }:
       paddingBottomRight: bottomRight,
       maxZoom: 14,
       animate: !prefersReducedMotion(),
-      duration: 0.8,
+      duration: 0.35,
     })
   }, [userPosition, gyms])
 

@@ -291,6 +291,7 @@ p {
   background: var(--brand);
 }
 
+.loc-status,
 .loc-error {
   grid-column: 1 / -1;
   background: var(--creme);
@@ -299,6 +300,28 @@ p {
   border-radius: 12px;
   font-size: 0.85rem;
   box-shadow: var(--ombre);
+}
+
+.loc-status {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  border-left-color: var(--calme);
+}
+
+.icon-btn:disabled {
+  cursor: progress;
+}
+
+.location-spinner {
+  animation: location-spin 0.9s linear infinite;
+}
+
+@keyframes location-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---------- Panneau ---------- */
