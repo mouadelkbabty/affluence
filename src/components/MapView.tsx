@@ -143,11 +143,32 @@ export function MapView({ gyms, occupancy, selectedId, userPosition, onSelect }:
         interactive: false,
         keyboard: false,
       }).addTo(map)
-      map.flyTo(latLng, 13.5, { duration: prefersReducedMotion() ? 0 : 0.8 })
     } else {
       userMarkerRef.current.setLatLng(latLng)
     }
-  }, [userPosition])
+
+    // Keep the user at the centre of the unobstructed map, with nearby gyms
+    // in view. Mirroring the bounds around the user preserves that centre.
+    const user = L.latLng(latLng)
+    const nearest = gyms
+      .map((gym) => L.latLng(toLatLng(gym.coords)))
+      .sort((a, b) => user.distanceTo(a) - user.distanceTo(b))
+      .slice(0, 3)
+    const bounds = L.latLngBounds([user])
+    for (const gym of nearest) {
+      bounds.extend(gym)
+      bounds.extend([2 * user.lat - gym.lat, 2 * user.lng - gym.lng])
+    }
+    const { topLeft, bottomRight } = framePadding()
+    map.stop()
+    map.fitBounds(bounds, {
+      paddingTopLeft: topLeft,
+      paddingBottomRight: bottomRight,
+      maxZoom: 14,
+      animate: !prefersReducedMotion(),
+      duration: 0.8,
+    })
+  }, [userPosition, gyms])
 
   return <div ref={containerRef} className="map" role="region" aria-label="Carte des salles" />
 }

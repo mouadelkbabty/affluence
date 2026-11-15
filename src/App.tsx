@@ -101,6 +101,7 @@ export default function App() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocError(null)
+        setExpanded(false)
         setUserPosition([pos.coords.longitude, pos.coords.latitude])
       },
       () => setLocError('Localisation refusée. Autorise-la dans les réglages pour voir les distances.'),
