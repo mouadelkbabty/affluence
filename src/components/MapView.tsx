@@ -59,6 +59,9 @@ export function MapView({ gyms, occupancy, selectedId, userPosition, locationTar
   useEffect(() => {
     if (!containerRef.current) return
     const map = L.map(containerRef.current, { zoomControl: false })
+    const locationPane = map.createPane('user-location')
+    locationPane.style.zIndex = '625'
+    locationPane.style.pointerEvents = 'none'
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution:
@@ -140,6 +143,7 @@ export function MapView({ gyms, occupancy, selectedId, userPosition, locationTar
     const latLng = toLatLng(userPosition)
     if (!userMarkerRef.current) {
       userMarkerRef.current = L.marker(latLng, {
+        pane: 'user-location',
         icon: L.divIcon({ className: 'user-host', html: '<span class="user-dot"></span>', iconSize: [0, 0] }),
         interactive: false,
         keyboard: false,
